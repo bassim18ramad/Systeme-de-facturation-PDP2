@@ -2,49 +2,20 @@ const nodemailer = require("nodemailer");
 
 // Create reusable transporter object using the default SMTP transport
 const createTransporter = async () => {
-  // If we have real credentials, use them
-  if (process.env.SMTP_HOST) {
-    return nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: process.env.SMTP_PORT || 587,
-      secure: false, // true for 465, false for other ports
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    });
-  }
-
-  // Otherwise generate a test account
-  try {
-    const testAccount = await nodemailer.createTestAccount();
-    console.log("Ethereal Email Test Account Created:", testAccount.user);
-
-    return nodemailer.createTransport({
-      host: "smtp.ethereal.email",
-      port: 587,
-      secure: false, // true for 465, false for other ports
-      auth: {
-        user: testAccount.user, // generated ethereal user
-        pass: testAccount.pass, // generated ethereal password
-      },
-    });
-  } catch (err) {
-    console.warn(
-      "⚠️ Failed to create Ethereal test account. Emails will only be logged to console.",
-    );
-    return {
-      sendMail: async (mailOptions) => {
-        console.log("---------------------------------------------------");
-        console.log("📧 EMAIL MOCK (No SMTP configured & Ethereal failed)");
-        console.log("TO:", mailOptions.to);
-        console.log("SUBJECT:", mailOptions.subject);
-        console.log("TEXT:", mailOptions.text);
-        console.log("---------------------------------------------------");
-        return { messageId: "mock-id-" + Date.now() };
-      },
-    };
-  }
+  // Sur l'abonnement gratuit de Render, les ports SMTP sortants (587, 465) sont bloqués
+  // par sécurité anti-spam, ce qui fait planter et tourner la requête "en boucle" (Erreur 520).
+  // Nous bloquons donc temporairement l'envoi de mail pour que l'inscription réussisse côté base de données.
+  console.log("⚠️ SMTP bypassé sur Render (Plan Gratuit). Email bloqué.");
+  return {
+    sendMail: async (mailOptions) => {
+      console.log("---------------------------------------------------");
+      console.log("📧 EMAIL SIMULÉ (Non envoyé en vrai à cause de Render)");
+      console.log("TO:", mailOptions.to);
+      console.log("SUBJECT:", mailOptions.subject);
+      console.log("---------------------------------------------------");
+      return { messageId: "mock-id-" + Date.now() };
+    },
+  };
 };
 
 const sendVerificationEmail = async (email, token) => {
