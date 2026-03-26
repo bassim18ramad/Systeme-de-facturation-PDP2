@@ -18,7 +18,7 @@ const sendVerificationEmail = async (email, token) => {
     const transporter = await createTransporter();
 
     // Setup email data
-    const verifyLink = `${process.env.FRONTEND_URL || "http://localhost:5173"}/verify-email?token=${token}`;
+    const verifyLink = `${process.env.CLIENT_URL || process.env.FRONTEND_URL || "http://localhost:5173"}/verify-email?token=${token}`;
 
     // Use the configured sender from env, or fallback to the SMTP user, or a default
     const sender =
@@ -56,7 +56,7 @@ const sendRecoveryEmail = async (email, token) => {
     const transporter = await createTransporter();
 
     // Setup email data
-    const recoveryLink = `${process.env.FRONTEND_URL || "http://localhost:5173"}/reset-password?token=${token}`;
+    const recoveryLink = `${process.env.CLIENT_URL || process.env.FRONTEND_URL || "http://localhost:5173"}/reset-password?token=${token}`;
 
     const sender =
       process.env.SMTP_FROM ||
