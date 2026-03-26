@@ -2,20 +2,15 @@ const nodemailer = require("nodemailer");
 
 // Create reusable transporter object using the default SMTP transport
 const createTransporter = async () => {
-  // Sur l'abonnement gratuit de Render, les ports SMTP sortants (587, 465) sont bloqués
-  // par sécurité anti-spam, ce qui fait planter et tourner la requête "en boucle" (Erreur 520).
-  // Nous bloquons donc temporairement l'envoi de mail pour que l'inscription réussisse côté base de données.
-  console.log("⚠️ SMTP bypassé sur Render (Plan Gratuit). Email bloqué.");
-  return {
-    sendMail: async (mailOptions) => {
-      console.log("---------------------------------------------------");
-      console.log("📧 EMAIL SIMULÉ (Non envoyé en vrai à cause de Render)");
-      console.log("TO:", mailOptions.to);
-      console.log("SUBJECT:", mailOptions.subject);
-      console.log("---------------------------------------------------");
-      return { messageId: "mock-id-" + Date.now() };
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST || "smtp.gmail.com",
+    port: parseInt(process.env.SMTP_PORT || "587"),
+    secure: process.env.SMTP_PORT === "465",
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
     },
-  };
+  });
 };
 
 const sendVerificationEmail = async (email, token) => {
