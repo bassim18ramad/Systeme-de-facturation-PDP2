@@ -19,6 +19,11 @@ app.get("/", (req, res) => {
   res.send("Supabase Local Mock Server is Running");
 });
 
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
-});
+if (process.env.NODE_ENV !== "production") {
+  app.listen(port, () => {
+    console.log(`Server running at http://localhost:${port}`);
+  });
+}
+
+// Pour Vercel Serverless Functions
+module.exports = app;
