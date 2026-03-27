@@ -41,7 +41,7 @@ export function ResetPassword() {
 
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/auth/v1/reset-password`,
+        `/auth/v1/reset-password`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

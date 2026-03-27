@@ -24,9 +24,9 @@ export function VerifyEmail() {
         // So we can assume supabase.auth.api (if generic) or just fetch directly.
         // Since we modified server/routes/auth.js, we have /auth/v1/verify
 
-        // Let's assume standard fetch for now to match custom backend
+        // Use a relative path to ensure it hits the Vercel rewrite correctly
         const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/auth/v1/verify?token=${token}`,
+          `/auth/v1/verify?token=${token}`,
         );
         const data = await response.json();
 

@@ -24,7 +24,7 @@ export function AuthForm() {
     setForgotLoading(true);
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/auth/v1/recover`,
+        `/auth/v1/recover`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
