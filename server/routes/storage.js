@@ -1,37 +1,14 @@
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
+const db = require("../db");
 
-// Ensure uploads directory exists
-const uploadDir = path.join(__dirname, "../../uploads");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    // preserve original extension
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(
-      null,
-      file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname),
-    );
-  },
-});
-
+// Use memory storage for Vercel compatibility
+const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 // Upload route: /storage/v1/object/:bucket/:filename
-// Note: Supabase upload URL is /storage/v1/object/bucket/path/to/file
-// and it expects the file body. Multer expects multipart/form-data.
-// Supabase-js client sends FormData usually.
-
-router.post(/^\/object\/([^/]+)\/(.+)$/, upload.single("file"), (req, res) => {
+router.post(/^\/object\/([^/]+)\/(.+)$/, upload.single("file"), async (req, res) => {
   const bucket = req.params[0];
   const relativePath = req.params[1];
 
@@ -39,50 +16,51 @@ router.post(/^\/object\/([^/]+)\/(.+)$/, upload.single("file"), (req, res) => {
     return res.status(400).json({ error: "No file uploaded" });
   }
 
-  // Use bucket as a folder
-  const bucketDir = path.join(uploadDir, bucket);
-  if (!fs.existsSync(bucketDir)) {
-    fs.mkdirSync(bucketDir, { recursive: true });
-  }
-
-  // Handle subdirectories in relativePath
-  const finalPath = path.join(bucketDir, relativePath);
-  const finalDir = path.dirname(finalPath);
-
-  if (!fs.existsSync(finalDir)) {
-    fs.mkdirSync(finalDir, { recursive: true });
-  }
-
   try {
-    fs.renameSync(req.file.path, finalPath);
-  } catch (e) {
-    return res.status(500).json({ error: "Failed to save file: " + e.message });
-  }
+    // 1. Ensure bucket exists in database (simplified)
+    await db.query(`INSERT INTO storage.buckets (id, name, public) VALUES ($1, $1, true) ON CONFLICT DO NOTHING`, [bucket]);
 
-  const key = `${bucket}/${relativePath}`;
-  res.json({ Key: key, path: key });
+    // 2. Insert or update object in database with the actual file content
+    const name = relativePath;
+    await db.query(`
+      INSERT INTO storage.objects (bucket_id, name, content, content_type)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (bucket_id, name) DO UPDATE SET 
+        content = EXCLUDED.content,
+        content_type = EXCLUDED.content_type,
+        updated_at = NOW()
+    `, [bucket, name, req.file.buffer, req.file.mimetype]);
+
+    const key = `${bucket}/${relativePath}`;
+    res.json({ Key: key, path: key });
+  } catch (e) {
+    console.error("Upload error:", e);
+    return res.status(500).json({ error: "Failed to save file to database: " + e.message });
+  }
 });
 
 // Get Public URL
-// Client calls: supabase.storage.from(bucket).getPublicUrl(path)
-// This is a client-side method mostly, but it needs a URL structure.
-// We serve files statically or via route.
-
-router.get(/^\/object\/public\/([^/]+)\/(.+)$/, (req, res) => {
+router.get(/^\/object\/public\/([^/]+)\/(.+)$/, async (req, res) => {
   const bucket = req.params[0];
   const relativePath = req.params[1];
 
-  // Security check to prevent directory traversal
-  if (relativePath.includes("..")) {
-    return res.status(400).json({ error: "Invalid path" });
-  }
+  try {
+    const result = await db.query(
+      "SELECT content, content_type FROM storage.objects WHERE bucket_id = $1 AND name = $2",
+      [bucket, relativePath]
+    );
 
-  const filePath = path.join(uploadDir, bucket, relativePath);
-
-  if (fs.existsSync(filePath)) {
-    res.sendFile(filePath);
-  } else {
-    res.status(404).json({ error: "File not found" });
+    if (result.rows.length > 0) {
+      const { content, content_type } = result.rows[0];
+      res.setHeader("Content-Type", content_type || "application/octet-stream");
+      res.setHeader("Cache-Control", "public, max-age=3600");
+      res.send(content);
+    } else {
+      res.status(404).json({ error: "File not found" });
+    }
+  } catch (e) {
+    console.error("Download error:", e);
+    res.status(500).json({ error: "Database error: " + e.message });
   }
 });
 
