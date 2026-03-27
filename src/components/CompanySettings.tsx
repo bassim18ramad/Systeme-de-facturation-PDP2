@@ -294,7 +294,7 @@ export function CompanySettings({ company, onUpdate }: CompanySettingsProps) {
             URL du logo
           </label>
           <input
-            type="url"
+            type="text"
             value={formData.logo_url}
             onChange={(e) =>
               setFormData({ ...formData, logo_url: e.target.value })
@@ -338,7 +338,7 @@ export function CompanySettings({ company, onUpdate }: CompanySettingsProps) {
             URL de la signature
           </label>
           <input
-            type="url"
+            type="text"
             value={formData.signature_url}
             onChange={(e) =>
               setFormData({ ...formData, signature_url: e.target.value })
