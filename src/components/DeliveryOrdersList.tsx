@@ -17,6 +17,7 @@ import {
   ArrowDown,
   ArrowUpDown,
   Edit2,
+  Trash2,
 } from "lucide-react";
 import { DeliveryOrderViewer } from "./DeliveryOrderViewer";
 import { downloadDocument } from "../utils/pdfGenerator";
@@ -51,6 +52,7 @@ export function DeliveryOrdersList({
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
+    created_at: "",
     delivery_date: "",
     status: "pending",
   });
@@ -254,6 +256,7 @@ export function DeliveryOrdersList({
     const { error } = await supabase
       .from("delivery_orders")
       .update({
+        created_at: editForm.created_at || null,
         delivery_date: editForm.delivery_date || null,
         status: editForm.status,
       })
@@ -268,9 +271,31 @@ export function DeliveryOrdersList({
     }
   }
 
+  async function deleteOrder(id: string) {
+    if (
+      !confirm(
+        "Confirmer la suppression de ce bon de commande ? Cette action est irréversible.",
+      )
+    )
+      return;
+
+    const { error } = await supabase
+      .from("delivery_orders")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      alert("Erreur lors de la suppression");
+    } else {
+      loadOrders();
+      onUpdate();
+    }
+  }
+
   function startEdit(order: OrderWithDetails) {
     setEditingId(order.id);
     setEditForm({
+      created_at: order.created_at ? order.created_at.split("T")[0] : "",
       delivery_date: order.delivery_date
         ? order.delivery_date.split("T")[0]
         : "",
@@ -398,6 +423,19 @@ export function DeliveryOrdersList({
             <form onSubmit={handleUpdateOrder} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">
+                  Date de création
+                </label>
+                <input
+                  type="date"
+                  value={editForm.created_at}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, created_at: e.target.value })
+                  }
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
                   Date de livraison
                 </label>
                 <input
@@ -523,6 +561,13 @@ export function DeliveryOrdersList({
                           title="Modifier"
                         >
                           <Edit2 className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => deleteOrder(order.id)}
+                          className="p-1 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-full transition-colors"
+                          title="Supprimer"
+                        >
+                          <Trash2 className="w-5 h-5" />
                         </button>
                         <button
                           onClick={() => loadOrderWithDetails(order)}

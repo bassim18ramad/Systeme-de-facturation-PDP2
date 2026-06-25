@@ -495,15 +495,13 @@ export function QuotesList({
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end items-center gap-2">
-                        {quote.status === "draft" && (
-                          <button
-                            onClick={() => handleEdit(quote)}
-                            className="p-1 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 rounded-full transition-colors"
-                            title="Modifier"
-                          >
-                            <Edit2 className="w-5 h-5" />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleEdit(quote)}
+                          className="p-1 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 rounded-full transition-colors"
+                          title="Modifier"
+                        >
+                          <Edit2 className="w-5 h-5" />
+                        </button>
                         <button
                           onClick={() => loadQuoteWithItems(quote)}
                           className="p-1 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-full transition-colors"
@@ -535,15 +533,13 @@ export function QuotesList({
                               <ArrowRight className="w-5 h-5" />
                             </button>
                           )}
-                        {quote.status === "draft" && (
-                          <button
-                            onClick={() => deleteQuote(quote.id)}
-                            className="p-1 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-full transition-colors"
-                            title="Supprimer"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => deleteQuote(quote.id)}
+                          className="p-1 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-full transition-colors"
+                          title="Supprimer"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
                       </div>
                     </td>
                   </tr>

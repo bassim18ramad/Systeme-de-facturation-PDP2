@@ -18,6 +18,7 @@ import {
   ArrowDown,
   ArrowUpDown,
   Edit2,
+  Trash2,
 } from "lucide-react";
 import { InvoiceViewer } from "./InvoiceViewer";
 import { downloadDocument } from "../utils/pdfGenerator";
@@ -45,6 +46,7 @@ export function InvoicesList({
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
+    created_at: "",
     payment_date: "",
     status: "unpaid",
     invoice_number: "",
@@ -187,7 +189,7 @@ export function InvoicesList({
     const { error } = await supabase
       .from("invoices")
       .update({
-        invoice_number: editForm.invoice_number,
+        created_at: editForm.created_at || null,
         payment_date: editForm.payment_date || null,
         status: editForm.status,
       })
@@ -202,9 +204,28 @@ export function InvoicesList({
     }
   }
 
+  async function deleteInvoice(id: string) {
+    if (
+      !confirm(
+        "Confirmer la suppression de cette facture ? Cette action est irréversible.",
+      )
+    )
+      return;
+
+    const { error } = await supabase.from("invoices").delete().eq("id", id);
+
+    if (error) {
+      alert("Erreur lors de la suppression");
+    } else {
+      loadInvoices();
+      onUpdate();
+    }
+  }
+
   function startEdit(invoice: InvoiceWithDetails) {
     setEditingId(invoice.id);
     setEditForm({
+      created_at: invoice.created_at ? invoice.created_at.split("T")[0] : "",
       invoice_number: invoice.invoice_number,
       payment_date: invoice.payment_date
         ? invoice.payment_date.split("T")[0]
@@ -360,16 +381,15 @@ export function InvoicesList({
             <form onSubmit={handleUpdateInvoice} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  Numéro de facture
+                  Date de création
                 </label>
                 <input
-                  type="text"
-                  value={editForm.invoice_number}
+                  type="date"
+                  value={editForm.created_at}
                   onChange={(e) =>
-                    setEditForm({ ...editForm, invoice_number: e.target.value })
+                    setEditForm({ ...editForm, created_at: e.target.value })
                   }
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  required
                 />
               </div>
               <div>
@@ -510,6 +530,13 @@ export function InvoicesList({
                           title="Modifier"
                         >
                           <Edit2 className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => deleteInvoice(invoice.id)}
+                          className="p-1 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-full transition-colors"
+                          title="Supprimer"
+                        >
+                          <Trash2 className="w-5 h-5" />
                         </button>
                         <button
                           onClick={() => loadInvoiceWithDetails(invoice)}

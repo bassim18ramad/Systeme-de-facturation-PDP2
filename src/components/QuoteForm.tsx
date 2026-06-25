@@ -29,6 +29,9 @@ export function QuoteForm({
   const [error, setError] = useState("");
 
   const [formData, setFormData] = useState({
+    created_at: initialData?.created_at
+      ? initialData.created_at.split("T")[0]
+      : "",
     client_name: initialData?.client_name || "Client Divers",
     client_email: initialData?.client_email || "",
     client_phone: initialData?.client_phone || "",
@@ -129,6 +132,7 @@ export function QuoteForm({
         const { error: quoteError } = await supabase
           .from("quotes")
           .update({
+            created_at: formData.created_at || null,
             client_name: formData.client_name,
             client_email: formData.client_email,
             client_phone: formData.client_phone || null,
@@ -278,6 +282,22 @@ export function QuoteForm({
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg animate-slide-up">
               {error}
+            </div>
+          )}
+
+          {initialData && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Date de création
+              </label>
+              <input
+                type="date"
+                value={formData.created_at}
+                onChange={(e) =>
+                  setFormData({ ...formData, created_at: e.target.value })
+                }
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
             </div>
           )}
 
