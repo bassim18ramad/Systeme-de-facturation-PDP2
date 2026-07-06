@@ -49,6 +49,7 @@ export function DeliveryOrdersList({
 }: DeliveryOrdersListProps) {
   const { profile } = useAuth();
   const [orders, setOrders] = useState<OrderWithDetails[]>([]);
+  const [orderClients, setOrderClients] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
@@ -98,12 +99,23 @@ export function DeliveryOrdersList({
 
   const filteredOrders = orders
     .filter((order) => {
-      const search = searchTerm.toLowerCase();
-      // Also potentially search linked quote data if needed, but keeping simple for now
-      return (
-        order.order_number.toLowerCase().includes(search) ||
-        statusLabels[order.status]?.toLowerCase().includes(search)
-      );
+      const search = searchTerm.toLowerCase().trim();
+      if (!search) return true;
+      const haystack = [
+        order.order_number,
+        orderClients[order.id],
+        statusLabels[order.status],
+        order.created_at
+          ? new Date(order.created_at).toLocaleDateString("fr-FR")
+          : "",
+        order.delivery_date
+          ? new Date(order.delivery_date).toLocaleDateString("fr-FR")
+          : "",
+      ]
+        .filter((v) => v !== null && v !== undefined && v !== "")
+        .join(" | ")
+        .toLowerCase();
+      return search.split(/\s+/).every((term) => haystack.includes(term));
     })
     .sort((a, b) => {
       if (!sortConfig) return 0;
@@ -130,6 +142,22 @@ export function DeliveryOrdersList({
 
     if (!error && data) {
       setOrders(data);
+
+      const { data: quotesData } = await supabase
+        .from("quotes")
+        .select("*")
+        .eq("company_id", companyId);
+
+      const quoteClientMap: Record<string, string> = {};
+      (quotesData || []).forEach((q: any) => {
+        quoteClientMap[q.id] = q.client_name;
+      });
+
+      const clientMap: Record<string, string> = {};
+      data.forEach((o: any) => {
+        clientMap[o.id] = quoteClientMap[o.quote_id] || "";
+      });
+      setOrderClients(clientMap);
 
       const { data: invoicesData } = await supabase
         .from("invoices")
@@ -491,7 +519,7 @@ export function DeliveryOrdersList({
             <input
               type="text"
               className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-shadow"
-              placeholder="Rechercher une commande..."
+              placeholder="Rechercher (numéro, client, statut, date...)"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -515,6 +543,9 @@ export function DeliveryOrdersList({
                     onClick={() => handleSort("order_number")}
                   >
                     Numéro <SortIcon columnKey="order_number" />
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Client
                   </th>
                   <th
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
@@ -542,6 +573,9 @@ export function DeliveryOrdersList({
                   >
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {order.order_number}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      {orderClients[order.id] || "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span

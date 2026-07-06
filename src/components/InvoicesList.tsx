@@ -43,6 +43,9 @@ export function InvoicesList({
 }: InvoicesListProps) {
   const { profile } = useAuth();
   const [invoices, setInvoices] = useState<InvoiceWithDetails[]>([]);
+  const [invoiceClients, setInvoiceClients] = useState<Record<string, string>>(
+    {},
+  );
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
@@ -89,12 +92,23 @@ export function InvoicesList({
 
   const filteredInvoices = invoices
     .filter((invoice) => {
-      const search = searchTerm.toLowerCase();
-      // Also potentially search linked quote data if needed, but keeping simple for now
-      return (
-        invoice.invoice_number.toLowerCase().includes(search) ||
-        statusLabels[invoice.status]?.toLowerCase().includes(search)
-      );
+      const search = searchTerm.toLowerCase().trim();
+      if (!search) return true;
+      const haystack = [
+        invoice.invoice_number,
+        invoiceClients[invoice.id],
+        statusLabels[invoice.status],
+        invoice.created_at
+          ? new Date(invoice.created_at).toLocaleDateString("fr-FR")
+          : "",
+        invoice.payment_date
+          ? new Date(invoice.payment_date).toLocaleDateString("fr-FR")
+          : "",
+      ]
+        .filter((v) => v !== null && v !== undefined && v !== "")
+        .join(" | ")
+        .toLowerCase();
+      return search.split(/\s+/).every((term) => haystack.includes(term));
     })
     .sort((a, b) => {
       if (!sortConfig) return 0;
@@ -124,6 +138,28 @@ export function InvoicesList({
 
     if (!error && data) {
       setInvoices(data);
+
+      const [ordersRes, quotesRes] = await Promise.all([
+        supabase.from("delivery_orders").select("*").eq("company_id", companyId),
+        supabase.from("quotes").select("*").eq("company_id", companyId),
+      ]);
+
+      const quoteClientMap: Record<string, string> = {};
+      (quotesRes.data || []).forEach((q: any) => {
+        quoteClientMap[q.id] = q.client_name;
+      });
+
+      const orderQuoteMap: Record<string, string> = {};
+      (ordersRes.data || []).forEach((o: any) => {
+        orderQuoteMap[o.id] = o.quote_id;
+      });
+
+      const clientMap: Record<string, string> = {};
+      data.forEach((inv: any) => {
+        const quoteId = orderQuoteMap[inv.delivery_order_id];
+        clientMap[inv.id] = quoteClientMap[quoteId] || "";
+      });
+      setInvoiceClients(clientMap);
     }
     setLoading(false);
   }
@@ -449,7 +485,7 @@ export function InvoicesList({
             <input
               type="text"
               className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-shadow"
-              placeholder="Rechercher une facture..."
+              placeholder="Rechercher (numéro, client, statut, date...)"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -471,6 +507,9 @@ export function InvoicesList({
                     onClick={() => handleSort("invoice_number")}
                   >
                     Numéro <SortIcon columnKey="invoice_number" />
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Client
                   </th>
                   <th
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
@@ -504,6 +543,9 @@ export function InvoicesList({
                   >
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {invoice.invoice_number}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      {invoiceClients[invoice.id] || "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span

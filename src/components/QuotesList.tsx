@@ -65,15 +65,41 @@ export function QuotesList({
     setSortConfig({ key, direction });
   };
 
+  const statusLabels = {
+    draft: "Brouillon",
+    sent: "Envoyé",
+    ordered: "Commandé",
+    cancelled: "Annulé",
+  };
+
   const filteredQuotes = quotes
     .filter((quote) => {
-      const search = searchTerm.toLowerCase();
-      return (
-        quote.quote_number.toLowerCase().includes(search) ||
-        quote.client_name.toLowerCase().includes(search) ||
-        quote.client_email.toLowerCase().includes(search) ||
-        statusLabels[quote.status].toLowerCase().includes(search)
-      );
+      const search = searchTerm.toLowerCase().trim();
+      if (!search) return true;
+      const haystack = [
+        quote.quote_number,
+        quote.client_name,
+        quote.client_email,
+        quote.client_phone,
+        quote.client_address,
+        quote.notes,
+        statusLabels[quote.status],
+        authors[quote.created_by],
+        quote.total_amount,
+        quote.total_amount != null
+          ? quote.total_amount.toLocaleString("fr-FR")
+          : "",
+        quote.created_at
+          ? new Date(quote.created_at).toLocaleDateString("fr-FR")
+          : "",
+        quote.updated_at
+          ? new Date(quote.updated_at).toLocaleDateString("fr-FR")
+          : "",
+      ]
+        .filter((v) => v !== null && v !== undefined && v !== "")
+        .join(" | ")
+        .toLowerCase();
+      return search.split(/\s+/).every((term) => haystack.includes(term));
     })
     .sort((a, b) => {
       if (!sortConfig) return 0;
@@ -248,13 +274,6 @@ export function QuotesList({
     });
   }
 
-  const statusLabels = {
-    draft: "Brouillon",
-    sent: "Envoyé",
-    ordered: "Commandé",
-    cancelled: "Annulé",
-  };
-
   const statusColors = {
     draft: "bg-gray-100 text-gray-800",
     sent: "bg-blue-100 text-blue-800",
@@ -402,7 +421,7 @@ export function QuotesList({
             <input
               type="text"
               className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-shadow"
-              placeholder="Rechercher (numéro, client...)"
+              placeholder="Rechercher (numéro, client, statut, montant, date...)"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
