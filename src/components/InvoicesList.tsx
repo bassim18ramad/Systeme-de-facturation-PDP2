@@ -58,7 +58,7 @@ export function InvoicesList({
     useState<InvoiceWithDetails | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortConfig, setSortConfig] = useState<{
-    key: keyof Invoice;
+    key: keyof Invoice | "client";
     direction: "asc" | "desc";
   } | null>(null);
 
@@ -66,7 +66,7 @@ export function InvoicesList({
     loadInvoices();
   }, [companyId]);
 
-  const handleSort = (key: keyof Invoice) => {
+  const handleSort = (key: keyof Invoice | "client") => {
     let direction: "asc" | "desc" = "asc";
     if (
       sortConfig &&
@@ -114,14 +114,22 @@ export function InvoicesList({
       if (!sortConfig) return 0;
       const { key, direction } = sortConfig;
 
-      let valA = a[key] as string | number | null;
-      let valB = b[key] as string | number | null;
+      let valA: string | number | null;
+      let valB: string | number | null;
 
-      if (valA === null) valA = "";
-      if (valB === null) valB = "";
+      if (key === "client") {
+        valA = (invoiceClients[a.id] || "").toLowerCase();
+        valB = (invoiceClients[b.id] || "").toLowerCase();
+      } else {
+        valA = a[key] as string | number | null;
+        valB = b[key] as string | number | null;
 
-      if (typeof valA === "string") valA = valA.toLowerCase();
-      if (typeof valB === "string") valB = valB.toLowerCase();
+        if (valA === null) valA = "";
+        if (valB === null) valB = "";
+
+        if (typeof valA === "string") valA = valA.toLowerCase();
+        if (typeof valB === "string") valB = valB.toLowerCase();
+      }
 
       if (valA < valB) return direction === "asc" ? -1 : 1;
       if (valA > valB) return direction === "asc" ? 1 : -1;
@@ -215,6 +223,10 @@ export function InvoicesList({
     if (!error) {
       loadInvoices();
       onUpdate();
+    } else {
+      alert(
+        `Erreur lors du marquage comme payée: ${error.message || "Erreur inconnue"}`,
+      );
     }
   }
 
@@ -299,11 +311,26 @@ export function InvoicesList({
         return;
       }
 
-      const { data: quoteData } = await supabase
-        .from("quotes")
-        .select("*")
-        .eq("id", orderData.quote_id)
-        .single();
+      const [quoteRes, itemsRes, companyRes] = await Promise.all([
+        supabase
+          .from("quotes")
+          .select("*")
+          .eq("id", orderData.quote_id)
+          .single(),
+        supabase
+          .from("quote_items")
+          .select("*")
+          .eq("quote_id", orderData.quote_id),
+        supabase
+          .from("companies")
+          .select("*")
+          .eq("id", invoice.company_id)
+          .single(),
+      ]);
+
+      const quoteData = quoteRes.data;
+      const items = itemsRes.data;
+      const company = companyRes.data;
 
       if (!quoteData) {
         if (printWindow) {
@@ -315,17 +342,6 @@ export function InvoicesList({
         return;
       }
 
-      const { data: items } = await supabase
-        .from("quote_items")
-        .select("*")
-        .eq("quote_id", quoteData.id);
-
-      const { data: company } = await supabase
-        .from("companies")
-        .select("*")
-        .eq("id", invoice.company_id)
-        .single();
-
       if (!items || !company) {
         if (printWindow) {
           printWindow.document.body.innerHTML =
@@ -336,11 +352,14 @@ export function InvoicesList({
         return;
       }
 
-      await supabase.from("download_logs").insert({
-        document_type: "invoice",
-        document_id: invoice.id,
-        downloaded_by: profile?.id,
-      });
+      supabase
+        .from("download_logs")
+        .insert({
+          document_type: "invoice",
+          document_id: invoice.id,
+          downloaded_by: profile?.id,
+        })
+        .then(() => {});
 
       downloadDocument(
         {
@@ -385,7 +404,11 @@ export function InvoicesList({
     }
   }
 
-  const SortIcon = ({ columnKey }: { columnKey: keyof Invoice }) => {
+  const SortIcon = ({
+    columnKey,
+  }: {
+    columnKey: keyof Invoice | "client";
+  }) => {
     const active = sortConfig?.key === columnKey;
     const direction = sortConfig?.direction || "asc";
 
@@ -508,8 +531,11 @@ export function InvoicesList({
                   >
                     Numéro <SortIcon columnKey="invoice_number" />
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Client
+                  <th
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => handleSort("client")}
+                  >
+                    Client <SortIcon columnKey="client" />
                   </th>
                   <th
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"

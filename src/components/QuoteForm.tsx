@@ -40,7 +40,7 @@ export function QuoteForm({
       initialData?.notes ||
       "Nous vous remercions pour la confiance que vous nous accordez et restons à votre entière disposition pour toute information complémentaire.",
     include_tva: initialData?.include_tva || false,
-    stamp_duty: initialData?.stamp_duty || 0,
+    stamp_duty: initialData ? (initialData.stamp_duty ?? 0) : 1000,
   });
 
   const [items, setItems] = useState<QuoteItem[]>(

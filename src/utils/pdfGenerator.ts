@@ -119,7 +119,7 @@ export function downloadDocument(
     doc.write(html);
     doc.close();
 
-    setTimeout(() => {
+    const triggerPrint = () => {
       iframe.contentWindow?.focus();
       iframe.contentWindow?.print();
       // Cleanup after print dialog handles usage
@@ -129,7 +129,14 @@ export function downloadDocument(
           document.body.removeChild(iframe);
         }
       }, 1000);
-    }, 500);
+    };
+
+    // Attendre le chargement des images (logo, signature) avant d'imprimer,
+    // avec un délai maximum de 4s pour ne pas bloquer si une image ne répond pas
+    Promise.race([
+      waitForImages(doc.body),
+      new Promise<void>((resolve) => setTimeout(resolve, 4000)),
+    ]).then(() => setTimeout(triggerPrint, 150));
   }
 }
 
@@ -157,6 +164,8 @@ function waitForImages(container: HTMLElement): Promise<void> {
 
 function generateHTML(data: DocumentData): string {
   const title = documentTitles[data.type];
+  // Bon de livraison : liste des produits et quantités uniquement, sans montants
+  const showAmounts = data.type !== "delivery_order";
   const hasDimensions = data.items.some((item) => item.width && item.length);
   const subtotal = data.items.reduce(
     (sum, item) => sum + Number(item.total),
@@ -530,8 +539,7 @@ function generateHTML(data: DocumentData): string {
         <th>Description</th>
         ${hasDimensions ? '<th class="right">Dimensions (m)</th>' : ""}
         <th class="right">Quantité</th>
-        <th class="right">Prix unitaire</th>
-        <th class="right">Total</th>
+        ${showAmounts ? '<th class="right">Prix unitaire</th><th class="right">Total</th>' : ""}
       </tr>
     </thead>
     <tbody>
@@ -550,8 +558,12 @@ function generateHTML(data: DocumentData): string {
               : ""
           }
           <td class="right">${item.quantity}</td>
-          <td class="right">${Number(item.unitPrice).toFixed(2)} FDJ</td>
-          <td class="right">${Number(item.total).toFixed(2)} FDJ</td>
+          ${
+            showAmounts
+              ? `<td class="right">${Number(item.unitPrice).toFixed(2)} FDJ</td>
+          <td class="right">${Number(item.total).toFixed(2)} FDJ</td>`
+              : ""
+          }
         </tr>
       `,
         )
@@ -559,6 +571,9 @@ function generateHTML(data: DocumentData): string {
     </tbody>
   </table>
 
+    ${
+      showAmounts
+        ? `
     <div class="summary">
       <div class="summary-row">
         <span>Sous-total</span>
@@ -589,6 +604,9 @@ function generateHTML(data: DocumentData): string {
         <span>${Number(data.total).toFixed(2)} FDJ</span>
       </div>
     </div>
+    `
+        : ""
+    }
 
     ${
       data.notes

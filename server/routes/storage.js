@@ -7,6 +7,45 @@ const db = require("../db");
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
+// Ensure the storage schema has the columns/constraints required by this
+// route. The committed migrations create storage.objects WITHOUT the
+// content/content_type columns and without a unique (bucket_id, name)
+// constraint, so uploads fail on databases built from the migrations alone.
+let storageSchemaReady = false;
+async function ensureStorageSchema() {
+  if (storageSchemaReady) return;
+  try {
+    await db.query(`CREATE SCHEMA IF NOT EXISTS storage`);
+    await db.query(`CREATE TABLE IF NOT EXISTS storage.buckets (
+      id text PRIMARY KEY,
+      name text NOT NULL,
+      public boolean DEFAULT false,
+      created_at timestamptz DEFAULT now()
+    )`);
+    await db.query(`CREATE TABLE IF NOT EXISTS storage.objects (
+      bucket_id text,
+      name text,
+      created_at timestamptz DEFAULT now(),
+      updated_at timestamptz DEFAULT now()
+    )`);
+    await db.query(
+      `ALTER TABLE storage.objects ADD COLUMN IF NOT EXISTS content bytea`,
+    );
+    await db.query(
+      `ALTER TABLE storage.objects ADD COLUMN IF NOT EXISTS content_type text`,
+    );
+    // Dédoublonner avant de créer l'index unique requis par ON CONFLICT
+    await db.query(`DELETE FROM storage.objects a
+      USING storage.objects b
+      WHERE a.ctid < b.ctid AND a.bucket_id = b.bucket_id AND a.name = b.name`);
+    await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS storage_objects_bucket_name_key
+      ON storage.objects (bucket_id, name)`);
+    storageSchemaReady = true;
+  } catch (e) {
+    console.error("ensureStorageSchema failed:", e.message);
+  }
+}
+
 // Upload route: /storage/v1/object/:bucket/:filename
 router.post(/^\/object\/([^/]+)\/(.+)$/, upload.single("file"), async (req, res) => {
   const bucket = req.params[0];
@@ -17,6 +56,8 @@ router.post(/^\/object\/([^/]+)\/(.+)$/, upload.single("file"), async (req, res)
   }
 
   try {
+    await ensureStorageSchema();
+
     // 1. Ensure bucket exists in database (simplified)
     await db.query(`INSERT INTO storage.buckets (id, name, public) VALUES ($1, $1, true) ON CONFLICT DO NOTHING`, [bucket]);
 
@@ -45,6 +86,8 @@ router.get(/^\/object\/public\/([^/]+)\/(.+)$/, async (req, res) => {
   const relativePath = req.params[1];
 
   try {
+    await ensureStorageSchema();
+
     const result = await db.query(
       "SELECT content, content_type FROM storage.objects WHERE bucket_id = $1 AND name = $2",
       [bucket, relativePath]

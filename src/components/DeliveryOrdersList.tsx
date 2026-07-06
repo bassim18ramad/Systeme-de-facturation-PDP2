@@ -33,15 +33,6 @@ export type OrderWithDetails = DeliveryOrder & {
   quote?: Quote & { items?: QuoteItem[] };
 };
 
-const SortIcon = ({ columnKey }: { columnKey: keyof DeliveryOrder }) => {
-  // @ts-ignore - access sortConfig from closure if defined outside or assume passes props?
-  // Since I can't easily move component outside or pass props without refactoring massive chunks,
-  // I'll inline the logic in the Th or rely on variable capture if defined in scope.
-  // Wait, I can't use 'sortConfig' here if defined inside the main component.
-  // I will inline the icon logic in the main render.
-  return null;
-};
-
 export function DeliveryOrdersList({
   companyId,
   onUpdate,
@@ -65,7 +56,7 @@ export function DeliveryOrdersList({
   );
   const [searchTerm, setSearchTerm] = useState("");
   const [sortConfig, setSortConfig] = useState<{
-    key: keyof DeliveryOrder;
+    key: keyof DeliveryOrder | "client";
     direction: "asc" | "desc";
   } | null>(null);
 
@@ -73,7 +64,7 @@ export function DeliveryOrdersList({
     loadOrders();
   }, [companyId]);
 
-  const handleSort = (key: keyof DeliveryOrder) => {
+  const handleSort = (key: keyof DeliveryOrder | "client") => {
     let direction: "asc" | "desc" = "asc";
     if (
       sortConfig &&
@@ -83,6 +74,25 @@ export function DeliveryOrdersList({
       direction = "desc";
     }
     setSortConfig({ key, direction });
+  };
+
+  const SortIcon = ({
+    columnKey,
+  }: {
+    columnKey: keyof DeliveryOrder | "client";
+  }) => {
+    const active = sortConfig?.key === columnKey;
+    const direction = sortConfig?.direction || "asc";
+
+    if (!active)
+      return (
+        <ArrowUpDown className="w-4 h-4 text-gray-400 ml-1 inline-block" />
+      );
+    return direction === "asc" ? (
+      <ArrowUp className="w-4 h-4 text-blue-600 ml-1 inline-block" />
+    ) : (
+      <ArrowDown className="w-4 h-4 text-blue-600 ml-1 inline-block" />
+    );
   };
 
   const statusLabels = {
@@ -121,11 +131,19 @@ export function DeliveryOrdersList({
       if (!sortConfig) return 0;
       const { key, direction } = sortConfig;
 
-      let valA = a[key] as string | number;
-      let valB = b[key] as string | number;
+      let valA: string | number;
+      let valB: string | number;
 
-      if (typeof valA === "string") valA = valA.toLowerCase();
-      if (typeof valB === "string") valB = valB.toLowerCase();
+      if (key === "client") {
+        valA = (orderClients[a.id] || "").toLowerCase();
+        valB = (orderClients[b.id] || "").toLowerCase();
+      } else {
+        valA = a[key] as string | number;
+        valB = b[key] as string | number;
+
+        if (typeof valA === "string") valA = valA.toLowerCase();
+        if (typeof valB === "string") valB = valB.toLowerCase();
+      }
 
       if (valA < valB) return direction === "asc" ? -1 : 1;
       if (valA > valB) return direction === "asc" ? 1 : -1;
@@ -262,6 +280,10 @@ export function DeliveryOrdersList({
       loadOrders();
       onUpdate();
       alert("Commande convertie en facture avec succès");
+    } else {
+      alert(
+        `Erreur lors de la conversion en facture: ${error.message || "Erreur inconnue"}`,
+      );
     }
   }
 
@@ -544,8 +566,11 @@ export function DeliveryOrdersList({
                   >
                     Numéro <SortIcon columnKey="order_number" />
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Client
+                  <th
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => handleSort("client")}
+                  >
+                    Client <SortIcon columnKey="client" />
                   </th>
                   <th
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"

@@ -208,12 +208,6 @@ export function DeliveryOrderViewer({
                 <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">
                   Quantité
                 </th>
-                <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">
-                  Prix unitaire
-                </th>
-                <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">
-                  Total
-                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -232,30 +226,9 @@ export function DeliveryOrderViewer({
                   <td className="px-4 py-3 text-sm text-gray-900 text-right">
                     {item.quantity}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-900 text-right">
-                    {Number(item.unit_price).toFixed(2)} FDJ
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-900 text-right">
-                    {Number(item.total_price).toFixed(2)} FDJ
-                  </td>
                 </tr>
               ))}
             </tbody>
-            <tfoot className="bg-gray-50">
-              <tr>
-                <td
-                  colSpan={
-                    order.quote?.items?.some((i) => i.width && i.length) ? 4 : 3
-                  }
-                  className="px-4 py-3 text-right text-base font-semibold text-gray-900"
-                >
-                  Total
-                </td>
-                <td className="px-4 py-3 text-right text-base font-bold text-gray-900">
-                  {Number(order.quote?.total_amount).toFixed(2)} FDJ
-                </td>
-              </tr>
-            </tfoot>
           </table>
 
           {order.quote?.notes && (
