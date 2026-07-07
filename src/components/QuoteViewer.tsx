@@ -78,6 +78,7 @@ export function QuoteViewer({ quote, onClose }: QuoteViewerProps) {
           total: quote.total_amount,
           include_tva: quote.include_tva,
           stamp_duty: quote.stamp_duty,
+          showSignature: quote.include_signature !== false,
           notes: quote.notes || "",
           downloadedBy: profile?.full_name || "",
         },
@@ -301,7 +302,7 @@ export function QuoteViewer({ quote, onClose }: QuoteViewerProps) {
             </div>
           )}
 
-          {company?.signature_url && (
+          {company?.signature_url && quote.include_signature !== false && (
             <div className="mt-8">
               <p className="text-sm text-gray-600 mb-2">Signature</p>
               <img

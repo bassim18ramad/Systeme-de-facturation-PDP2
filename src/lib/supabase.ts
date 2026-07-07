@@ -45,6 +45,7 @@ export type Quote = {
   total_amount: number;
   include_tva?: boolean;
   stamp_duty?: number;
+  include_signature?: boolean;
   notes: string | null;
   created_by: string;
   created_at: string;

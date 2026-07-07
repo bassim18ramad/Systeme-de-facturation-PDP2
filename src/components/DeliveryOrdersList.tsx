@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   supabase,
   DeliveryOrder,
@@ -138,8 +139,8 @@ export function DeliveryOrdersList({
         valA = (orderClients[a.id] || "").toLowerCase();
         valB = (orderClients[b.id] || "").toLowerCase();
       } else {
-        valA = a[key] as string | number;
-        valB = b[key] as string | number;
+        valA = (a[key] ?? "") as string | number;
+        valB = (b[key] ?? "") as string | number;
 
         if (typeof valA === "string") valA = valA.toLowerCase();
         if (typeof valB === "string") valB = valB.toLowerCase();
@@ -286,11 +287,21 @@ export function DeliveryOrdersList({
     }
   }
 
-  async function updateStatus(id: string, status: "pending" | "delivered") {
+  async function updateStatus(
+    order: OrderWithDetails,
+    status: "pending" | "delivered",
+  ) {
+    const updates: { status: string; delivery_date?: string } = { status };
+    // Enregistrer la date de livraison au moment où la commande est livrée
+    // (sans écraser une date déjà saisie manuellement)
+    if (status === "delivered" && !order.delivery_date) {
+      updates.delivery_date = new Date().toISOString().split("T")[0];
+    }
+
     const { error } = await supabase
       .from("delivery_orders")
-      .update({ status })
-      .eq("id", id);
+      .update(updates)
+      .eq("id", order.id);
 
     if (!error) {
       loadOrders();
@@ -320,22 +331,39 @@ export function DeliveryOrdersList({
     }
   }
 
-  async function deleteOrder(id: string) {
+  async function deleteOrder(order: OrderWithDetails) {
     if (
       !confirm(
-        "Confirmer la suppression de ce bon de commande ? Cette action est irréversible.",
+        "Confirmer la suppression de ce bon de commande ?\n\nSes factures liées seront également supprimées. Cette action est irréversible.",
       )
     )
       return;
 
+    // Supprimer d'abord les factures liées à ce bon de commande
+    await supabase.from("invoices").delete().eq("delivery_order_id", order.id);
+
     const { error } = await supabase
       .from("delivery_orders")
       .delete()
-      .eq("id", id);
+      .eq("id", order.id);
 
     if (error) {
       alert("Erreur lors de la suppression");
     } else {
+      // Redonner au devis lié le droit d'être converti à nouveau
+      const { data: quoteData } = await supabase
+        .from("quotes")
+        .select("*")
+        .eq("id", order.quote_id)
+        .maybeSingle();
+
+      if (quoteData && quoteData.status === "ordered") {
+        await supabase
+          .from("quotes")
+          .update({ status: "sent" })
+          .eq("id", order.quote_id);
+      }
+
       loadOrders();
       onUpdate();
     }
@@ -415,6 +443,9 @@ export function DeliveryOrdersList({
           type: "delivery_order",
           number: order.order_number,
           date: new Date(order.created_at).toLocaleDateString("fr-FR"),
+          deliveryDate: order.delivery_date
+            ? new Date(order.delivery_date).toLocaleDateString("fr-FR")
+            : undefined,
           company: company as Company,
           client: {
             name: quoteData.client_name,
@@ -431,6 +462,7 @@ export function DeliveryOrdersList({
             total: item.total_price,
           })),
           total: quoteData.total_amount,
+          showSignature: quoteData.include_signature !== false,
           notes: quoteData.notes || "",
           downloadedBy: profile?.full_name || "",
         },
@@ -463,8 +495,9 @@ export function DeliveryOrdersList({
 
   return (
     <>
-      {editingId && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {editingId &&
+        createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4 pt-[5vh] overflow-y-auto">
           <div className="bg-white rounded-lg p-6 max-w-md w-full animate-slide-up">
             <h3 className="text-lg font-bold mb-4">
               Modifier le Bon de Livraison
@@ -529,7 +562,8 @@ export function DeliveryOrdersList({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden animate-fade-in">
         <div className="p-4 border-b border-gray-200 bg-gray-50 flex items-center gap-4">
@@ -583,6 +617,12 @@ export function DeliveryOrdersList({
                   >
                     Date création <SortIcon columnKey="created_at" />
                   </th>
+                  <th
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => handleSort("delivery_date")}
+                  >
+                    Date livraison <SortIcon columnKey="delivery_date" />
+                  </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
@@ -611,6 +651,13 @@ export function DeliveryOrdersList({
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(order.created_at).toLocaleDateString("fr-FR")}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {order.delivery_date
+                        ? new Date(order.delivery_date).toLocaleDateString(
+                            "fr-FR",
+                          )
+                        : "-"}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end items-center gap-2">
                         <button
@@ -621,7 +668,7 @@ export function DeliveryOrdersList({
                           <Edit2 className="w-5 h-5" />
                         </button>
                         <button
-                          onClick={() => deleteOrder(order.id)}
+                          onClick={() => deleteOrder(order)}
                           className="p-1 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-full transition-colors"
                           title="Supprimer"
                         >
@@ -650,7 +697,7 @@ export function DeliveryOrdersList({
                         </button>
                         {order.status === "pending" && (
                           <button
-                            onClick={() => updateStatus(order.id, "delivered")}
+                            onClick={() => updateStatus(order, "delivered")}
                             className="p-1 text-green-600 hover:text-green-900 hover:bg-green-50 rounded-full transition-colors"
                             title="Marquer comme livrée"
                           >

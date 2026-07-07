@@ -26,6 +26,8 @@ type DocumentData = {
   total: number;
   include_tva?: boolean;
   stamp_duty?: number;
+  deliveryDate?: string;
+  showSignature?: boolean;
   notes: string;
   downloadedBy: string;
 };
@@ -513,6 +515,7 @@ function generateHTML(data: DocumentData): string {
 
     <div class="meta-row">
       <span>Date: ${data.date}</span>
+      ${data.deliveryDate ? `<span>Date de livraison: ${data.deliveryDate}</span>` : ""}
       <span>${data.items.length} article${data.items.length > 1 ? "s" : ""}</span>
     </div>
 
@@ -620,7 +623,7 @@ function generateHTML(data: DocumentData): string {
     }
 
     ${
-      signatureUrl
+      signatureUrl && data.showSignature !== false
         ? `
       <div class="signature">
         <p>Signature</p>

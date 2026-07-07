@@ -41,6 +41,8 @@ export function QuoteForm({
       "Nous vous remercions pour la confiance que vous nous accordez et restons à votre entière disposition pour toute information complémentaire.",
     include_tva: initialData?.include_tva || false,
     stamp_duty: initialData ? (initialData.stamp_duty ?? 0) : 1000,
+    apply_stamp: initialData ? (initialData.stamp_duty ?? 0) > 0 : true,
+    include_signature: initialData ? initialData.include_signature !== false : true,
   });
 
   const [items, setItems] = useState<QuoteItem[]>(
@@ -110,7 +112,7 @@ export function QuoteForm({
     return (
       subtotal +
       (formData.include_tva ? subtotal * 0.1 : 0) +
-      (Number(formData.stamp_duty) || 0)
+      (formData.apply_stamp ? Number(formData.stamp_duty) || 0 : 0)
     );
   }
 
@@ -139,7 +141,10 @@ export function QuoteForm({
             client_address: formData.client_address || null,
             notes: formData.notes || null,
             include_tva: formData.include_tva,
-            stamp_duty: Number(formData.stamp_duty) || 0,
+            stamp_duty: formData.apply_stamp
+              ? Number(formData.stamp_duty) || 0
+              : 0,
+            include_signature: formData.include_signature,
             total_amount: totalAmount,
           })
           .eq("id", initialData.id);
@@ -211,7 +216,10 @@ export function QuoteForm({
             client_address: formData.client_address || null,
             notes: formData.notes || null,
             include_tva: formData.include_tva,
-            stamp_duty: Number(formData.stamp_duty) || 0,
+            stamp_duty: formData.apply_stamp
+              ? Number(formData.stamp_duty) || 0
+              : 0,
+            include_signature: formData.include_signature,
             total_amount: totalAmount,
             status: "draft",
             created_by: profile?.id,
@@ -527,6 +535,15 @@ export function QuoteForm({
               </label>
 
               <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={formData.apply_stamp}
+                  onChange={(e) =>
+                    setFormData({ ...formData, apply_stamp: e.target.checked })
+                  }
+                  className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
+                  title="Activer/désactiver le frais de timbre"
+                />
                 <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
                   Frais de timbre:
                 </label>
@@ -542,7 +559,8 @@ export function QuoteForm({
                         stamp_duty: Number(e.target.value),
                       })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
+                    disabled={!formData.apply_stamp}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
                     placeholder="0"
                   />
                   <span className="absolute right-3 top-2 text-gray-500 text-sm">
@@ -550,6 +568,23 @@ export function QuoteForm({
                   </span>
                 </div>
               </div>
+
+              <label className="flex items-center space-x-2 p-2 bg-white rounded border border-gray-200 cursor-pointer hover:bg-gray-50">
+                <input
+                  type="checkbox"
+                  checked={formData.include_signature}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      include_signature: e.target.checked,
+                    })
+                  }
+                  className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
+                />
+                <span className="text-sm font-medium text-gray-700">
+                  Inclure la signature dans le devis
+                </span>
+              </label>
             </div>
 
             <div className="border-t border-gray-200 pt-4 space-y-2">
@@ -567,7 +602,7 @@ export function QuoteForm({
                 </div>
               )}
 
-              {formData.stamp_duty > 0 && (
+              {formData.apply_stamp && formData.stamp_duty > 0 && (
                 <div className="flex justify-between text-sm text-gray-600">
                   <span>Frais de timbre:</span>
                   <span>

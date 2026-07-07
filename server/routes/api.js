@@ -2,6 +2,24 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 
+// Colonnes récentes non couvertes par les migrations déjà appliquées en
+// production : on les ajoute à la volée (une seule fois par démarrage),
+// comme ensureStorageSchema dans routes/storage.js.
+let businessSchemaReady = false;
+router.use(async (req, res, next) => {
+  if (!businessSchemaReady) {
+    try {
+      await db.query(
+        `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS include_signature boolean DEFAULT true`,
+      );
+      businessSchemaReady = true;
+    } catch (e) {
+      console.error("ensure business schema failed:", e.message);
+    }
+  }
+  next();
+});
+
 // Generic handler for "supabase-like" queries
 // POST /api/:table
 // Body: { select: '*', eq: { col: val }, order: { col: 'asc' } }

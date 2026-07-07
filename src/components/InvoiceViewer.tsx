@@ -80,6 +80,8 @@ export function InvoiceViewer({ invoice, onClose }: InvoiceViewerProps) {
             total: item.total_price,
           })),
           total: invoice.delivery_order.quote.total_amount,
+          showSignature:
+            invoice.delivery_order.quote.include_signature !== false,
           notes: invoice.delivery_order.quote.notes || "",
           downloadedBy: profile?.full_name || "",
         },
@@ -274,7 +276,8 @@ export function InvoiceViewer({ invoice, onClose }: InvoiceViewerProps) {
             </div>
           )}
 
-          {company?.signature_url && (
+          {company?.signature_url &&
+            invoice.delivery_order?.quote?.include_signature !== false && (
             <div className="mt-8">
               <p className="text-sm text-gray-600 mb-2">Signature</p>
               <img

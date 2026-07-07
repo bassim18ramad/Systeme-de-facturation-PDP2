@@ -59,6 +59,9 @@ export function DeliveryOrderViewer({
           type: "delivery_order",
           number: order.order_number,
           date: new Date(order.created_at).toLocaleDateString("fr-FR"),
+          deliveryDate: order.delivery_date
+            ? new Date(order.delivery_date).toLocaleDateString("fr-FR")
+            : undefined,
           company,
           client: {
             name: order.quote.client_name,
@@ -75,6 +78,7 @@ export function DeliveryOrderViewer({
             total: item.total_price,
           })),
           total: order.quote.total_amount,
+          showSignature: order.quote.include_signature !== false,
           notes: order.quote.notes || "",
           downloadedBy: profile?.full_name || "",
         },
@@ -182,6 +186,12 @@ export function DeliveryOrderViewer({
             <p className="text-sm text-gray-600">
               Date: {new Date(order.created_at).toLocaleDateString("fr-FR")}
             </p>
+            {order.delivery_date && (
+              <p className="text-sm text-gray-600">
+                Date de livraison:{" "}
+                {new Date(order.delivery_date).toLocaleDateString("fr-FR")}
+              </p>
+            )}
             <p className="text-sm text-gray-600">
               Statut:{" "}
               <span className="font-semibold">
@@ -240,7 +250,8 @@ export function DeliveryOrderViewer({
             </div>
           )}
 
-          {company?.signature_url && (
+          {company?.signature_url &&
+            order.quote?.include_signature !== false && (
             <div className="mt-8">
               <p className="text-sm text-gray-600 mb-2">Signature</p>
               <img

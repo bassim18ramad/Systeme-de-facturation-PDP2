@@ -300,11 +300,34 @@ export function QuotesList({
   };
 
   async function deleteQuote(id: string) {
-    if (!confirm("Confirmer la suppression de ce devis ?")) return;
+    if (
+      !confirm(
+        "Confirmer la suppression de ce devis ?\n\nSon bon de commande et ses factures liés seront également supprimés. Cette action est irréversible.",
+      )
+    )
+      return;
+
+    // Supprimer d'abord la chaîne liée : factures -> bons de commande -> articles
+    const { data: linkedOrders } = await supabase
+      .from("delivery_orders")
+      .select("*")
+      .eq("quote_id", id);
+
+    for (const order of linkedOrders || []) {
+      await supabase
+        .from("invoices")
+        .delete()
+        .eq("delivery_order_id", order.id);
+    }
+
+    await supabase.from("delivery_orders").delete().eq("quote_id", id);
+    await supabase.from("quote_items").delete().eq("quote_id", id);
 
     const { error } = await supabase.from("quotes").delete().eq("id", id);
 
-    if (!error) {
+    if (error) {
+      alert("Erreur lors de la suppression");
+    } else {
       loadQuotes();
       onUpdate();
     }
@@ -379,6 +402,7 @@ export function QuotesList({
           total: quote.total_amount,
           include_tva: quote.include_tva,
           stamp_duty: quote.stamp_duty,
+          showSignature: quote.include_signature !== false,
           notes: quote.notes || "",
           downloadedBy: profile?.full_name || "",
         },
