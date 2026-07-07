@@ -211,27 +211,26 @@ export function QuotesList({
     const currentYear = new Date().getFullYear();
     const prefix = `${companyName}/CMD-${currentYear}`;
 
-    // Find last order to increment sequence
-    const { data: lastOrder } = await supabase
+    // Prochain numéro = max des séquences existantes + 1.
+    // (Se baser sur la dernière commande par created_at génère des doublons
+    // dès qu'une date de création a été modifiée/antidatée.)
+    const { data: existingOrders } = await supabase
       .from("delivery_orders")
       .select("order_number")
       .eq("company_id", quote.company_id)
       // Search for both formats
       .or(
         `order_number.ilike.${companyName}_CMD-${currentYear}%,order_number.ilike.${companyName}/CMD-${currentYear}%`,
-      )
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      );
 
     let sequence = 1;
-    if (lastOrder && lastOrder.order_number) {
-      const parts = lastOrder.order_number.split("-");
+    for (const o of existingOrders || []) {
+      if (!o.order_number) continue;
+      const parts = o.order_number.split("-");
       const lastSeqPart = parts[parts.length - 1];
       if (lastSeqPart.length >= 5) {
-        const seqStr = lastSeqPart.slice(-5);
-        const seqNum = parseInt(seqStr);
-        if (!isNaN(seqNum)) {
+        const seqNum = parseInt(lastSeqPart.slice(-5));
+        if (!isNaN(seqNum) && seqNum + 1 > sequence) {
           sequence = seqNum + 1;
         }
       }

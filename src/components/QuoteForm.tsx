@@ -173,29 +173,26 @@ export function QuoteForm({
         const currentYear = new Date().getFullYear();
         const prefix = `${companyName}/DEV-${currentYear}`;
 
-        // Find last quote to increment sequence
-        const { data: lastQuote } = await supabase
+        // Prochain numéro = max des séquences existantes + 1.
+        // (Se baser sur le dernier devis par created_at génère des doublons
+        // dès qu'une date de création a été modifiée/antidatée.)
+        const { data: existingQuotes } = await supabase
           .from("quotes")
           .select("quote_number")
           .eq("company_id", companyId)
           // Search for both formats to maintain sequence continuity
           .or(
             `quote_number.ilike.${companyName}_DEV-${currentYear}%,quote_number.ilike.${companyName}/DEV-${currentYear}%`,
-          )
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          );
 
         let sequence = 1;
-        if (lastQuote && lastQuote.quote_number) {
-          const parts = lastQuote.quote_number.split("-");
+        for (const q of existingQuotes || []) {
+          if (!q.quote_number) continue;
+          const parts = q.quote_number.split("-");
           const lastSeqPart = parts[parts.length - 1]; // e.g., 202600001
-          // Extract the sequence part (last 5 digits)
-          // format is YEAR + 00001 (9 chars total usually if year is 4 digits)
           if (lastSeqPart.length >= 5) {
-            const seqStr = lastSeqPart.slice(-5);
-            const seqNum = parseInt(seqStr);
-            if (!isNaN(seqNum)) {
+            const seqNum = parseInt(lastSeqPart.slice(-5));
+            if (!isNaN(seqNum) && seqNum + 1 > sequence) {
               sequence = seqNum + 1;
             }
           }

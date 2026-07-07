@@ -240,27 +240,26 @@ export function DeliveryOrdersList({
     const currentYear = new Date().getFullYear();
     const prefix = `${companyName}/FACT-${currentYear}`;
 
-    // Find last invoice to increment sequence
-    const { data: lastInvoice } = await supabase
+    // Prochain numéro = max des séquences existantes + 1.
+    // (Se baser sur la dernière facture par created_at génère des doublons
+    // dès qu'une date de création a été modifiée/antidatée.)
+    const { data: existingInvoices } = await supabase
       .from("invoices")
       .select("invoice_number")
       .eq("company_id", order.company_id)
       // Search for both formats
       .or(
         `invoice_number.ilike.${companyName}_FACT-${currentYear}%,invoice_number.ilike.${companyName}/FACT-${currentYear}%`,
-      )
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      );
 
     let sequence = 1;
-    if (lastInvoice && lastInvoice.invoice_number) {
-      const parts = lastInvoice.invoice_number.split("-");
+    for (const inv of existingInvoices || []) {
+      if (!inv.invoice_number) continue;
+      const parts = inv.invoice_number.split("-");
       const lastSeqPart = parts[parts.length - 1]; // e.g., 202600001
       if (lastSeqPart.length >= 5) {
-        const seqStr = lastSeqPart.slice(-5);
-        const seqNum = parseInt(seqStr);
-        if (!isNaN(seqNum)) {
+        const seqNum = parseInt(lastSeqPart.slice(-5));
+        if (!isNaN(seqNum) && seqNum + 1 > sequence) {
           sequence = seqNum + 1;
         }
       }
