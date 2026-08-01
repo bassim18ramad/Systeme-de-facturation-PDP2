@@ -42,9 +42,13 @@ export function EmployerDashboard() {
   const [quotesRefreshToken, setQuotesRefreshToken] = useState(0);
   const [stats, setStats] = useState({
     totalQuotes: 0,
+    draftQuotes: 0,
+    sentQuotes: 0,
     orderedQuotes: 0,
+    totalOrders: 0,
     pendingOrders: 0,
     deliveredOrders: 0,
+    totalInvoices: 0,
     unpaidInvoices: 0,
     paidInvoices: 0,
   });
@@ -57,7 +61,9 @@ export function EmployerDashboard() {
     if (selectedCompany) {
       loadStats();
     }
-  }, [selectedCompany]);
+    // Rafraîchir aussi à chaque changement d'onglet pour rester à jour
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCompany, activeTab]);
 
   async function loadCompanies() {
     const { data, error } = await supabase
@@ -79,59 +85,35 @@ export function EmployerDashboard() {
     const [quotesRes, ordersRes, invoicesRes] = await Promise.all([
       supabase
         .from("quotes")
-        .select("*", { count: "exact", head: true })
+        .select("*")
         .eq("company_id", selectedCompany.id),
       supabase
         .from("delivery_orders")
-        .select("*", { count: "exact", head: true })
+        .select("*")
         .eq("company_id", selectedCompany.id),
       supabase
         .from("invoices")
-        .select("*", { count: "exact", head: true })
+        .select("*")
         .eq("company_id", selectedCompany.id),
     ]);
 
-    const [
-      orderedQuotesRes,
-      pendingOrdersRes,
-      deliveredOrdersRes,
-      unpaidInvoicesRes,
-      paidInvoicesRes,
-    ] = await Promise.all([
-      supabase
-        .from("quotes")
-        .select("*", { count: "exact", head: true })
-        .eq("company_id", selectedCompany.id)
-        .eq("status", "ordered"),
-      supabase
-        .from("delivery_orders")
-        .select("*", { count: "exact", head: true })
-        .eq("company_id", selectedCompany.id)
-        .eq("status", "pending"),
-      supabase
-        .from("delivery_orders")
-        .select("*", { count: "exact", head: true })
-        .eq("company_id", selectedCompany.id)
-        .eq("status", "delivered"),
-      supabase
-        .from("invoices")
-        .select("*", { count: "exact", head: true })
-        .eq("company_id", selectedCompany.id)
-        .eq("status", "unpaid"),
-      supabase
-        .from("invoices")
-        .select("*", { count: "exact", head: true })
-        .eq("company_id", selectedCompany.id)
-        .eq("status", "paid"),
-    ]);
+    const quotes = quotesRes.data || [];
+    const orders = ordersRes.data || [];
+    const invoices = invoicesRes.data || [];
+    const countBy = (list: { status?: string }[], status: string) =>
+      list.filter((item) => item.status === status).length;
 
     setStats({
-      totalQuotes: quotesRes.count || 0,
-      orderedQuotes: orderedQuotesRes.count || 0,
-      pendingOrders: pendingOrdersRes.count || 0,
-      deliveredOrders: deliveredOrdersRes.count || 0,
-      unpaidInvoices: unpaidInvoicesRes.count || 0,
-      paidInvoices: paidInvoicesRes.count || 0,
+      totalQuotes: quotes.length,
+      draftQuotes: countBy(quotes, "draft"),
+      sentQuotes: countBy(quotes, "sent"),
+      orderedQuotes: countBy(quotes, "ordered"),
+      totalOrders: orders.length,
+      pendingOrders: countBy(orders, "pending"),
+      deliveredOrders: countBy(orders, "delivered"),
+      totalInvoices: invoices.length,
+      unpaidInvoices: countBy(invoices, "unpaid"),
+      paidInvoices: countBy(invoices, "paid"),
     });
   }
 
@@ -207,8 +189,10 @@ export function EmployerDashboard() {
         {selectedCompany && activeTab !== "settings" && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div
-              className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 transition-all hover:shadow-md hover:border-blue-200 animate-slide-up"
+              onClick={() => setActiveTab("quotes")}
+              className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 transition-all hover:shadow-md hover:border-blue-200 hover:-translate-y-0.5 cursor-pointer animate-slide-up"
               style={{ animationDelay: "0s" }}
+              title="Voir les devis"
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -223,16 +207,24 @@ export function EmployerDashboard() {
                   <FileText className="w-6 h-6 text-blue-600" />
                 </div>
               </div>
-              <div className="mt-4 flex items-center text-sm">
-                <span className="text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full text-xs animate-pulse-slow">
+              <div className="mt-4 flex items-center flex-wrap gap-1.5 text-sm">
+                <span className="text-gray-600 font-medium bg-gray-100 px-2 py-0.5 rounded-full text-xs">
+                  {stats.draftQuotes} brouillons
+                </span>
+                <span className="text-blue-600 font-medium bg-blue-50 px-2 py-0.5 rounded-full text-xs">
+                  {stats.sentQuotes} envoyés
+                </span>
+                <span className="text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full text-xs">
                   {stats.orderedQuotes} commandés
                 </span>
               </div>
             </div>
 
             <div
-              className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 transition-all hover:shadow-md hover:border-purple-200 animate-slide-up"
+              onClick={() => setActiveTab("orders")}
+              className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 transition-all hover:shadow-md hover:border-purple-200 hover:-translate-y-0.5 cursor-pointer animate-slide-up"
               style={{ animationDelay: "0.1s" }}
+              title="Voir les commandes"
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -240,38 +232,46 @@ export function EmployerDashboard() {
                     Total Commandes
                   </p>
                   <p className="text-3xl font-bold text-gray-900 mt-2">
-                    {stats.pendingOrders + stats.deliveredOrders}
+                    {stats.totalOrders}
                   </p>
                 </div>
                 <div className="bg-purple-50 p-3 rounded-xl">
                   <Truck className="w-6 h-6 text-purple-600" />
                 </div>
               </div>
-              <div className="mt-4 flex items-center text-sm">
+              <div className="mt-4 flex items-center flex-wrap gap-1.5 text-sm">
                 <span className="text-amber-600 font-medium bg-amber-50 px-2 py-0.5 rounded-full text-xs">
                   {stats.pendingOrders} en attente
+                </span>
+                <span className="text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full text-xs">
+                  {stats.deliveredOrders} livrées
                 </span>
               </div>
             </div>
 
             <div
-              className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 transition-all hover:shadow-md hover:border-green-200 animate-slide-up"
+              onClick={() => setActiveTab("invoices")}
+              className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 transition-all hover:shadow-md hover:border-green-200 hover:-translate-y-0.5 cursor-pointer animate-slide-up"
               style={{ animationDelay: "0.2s" }}
+              title="Voir les factures"
             >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-500">Factures</p>
                   <p className="text-3xl font-bold text-gray-900 mt-2">
-                    {stats.unpaidInvoices + stats.paidInvoices}
+                    {stats.totalInvoices}
                   </p>
                 </div>
                 <div className="bg-green-50 p-3 rounded-xl">
                   <Receipt className="w-6 h-6 text-green-600" />
                 </div>
               </div>
-              <div className="mt-4 flex items-center text-sm">
+              <div className="mt-4 flex items-center flex-wrap gap-1.5 text-sm">
                 <span className="text-red-600 font-medium bg-red-50 px-2 py-0.5 rounded-full text-xs">
                   {stats.unpaidInvoices} impayées
+                </span>
+                <span className="text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full text-xs">
+                  {stats.paidInvoices} payées
                 </span>
               </div>
             </div>

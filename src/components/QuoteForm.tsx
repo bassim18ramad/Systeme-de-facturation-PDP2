@@ -43,6 +43,7 @@ export function QuoteForm({
     stamp_duty: initialData ? (initialData.stamp_duty ?? 0) : 1000,
     apply_stamp: initialData ? (initialData.stamp_duty ?? 0) > 0 : true,
     include_signature: initialData ? initialData.include_signature !== false : true,
+    status: initialData?.status || "draft",
   });
 
   const [items, setItems] = useState<QuoteItem[]>(
@@ -145,6 +146,7 @@ export function QuoteForm({
               ? Number(formData.stamp_duty) || 0
               : 0,
             include_signature: formData.include_signature,
+            status: formData.status,
             total_amount: totalAmount,
           })
           .eq("id", initialData.id);
@@ -291,18 +293,37 @@ export function QuoteForm({
           )}
 
           {initialData && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Date de création
-              </label>
-              <input
-                type="date"
-                value={formData.created_at}
-                onChange={(e) =>
-                  setFormData({ ...formData, created_at: e.target.value })
-                }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Date de création
+                </label>
+                <input
+                  type="date"
+                  value={formData.created_at}
+                  onChange={(e) =>
+                    setFormData({ ...formData, created_at: e.target.value })
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Statut
+                </label>
+                <select
+                  value={formData.status}
+                  onChange={(e) =>
+                    setFormData({ ...formData, status: e.target.value })
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="draft">Brouillon</option>
+                  <option value="sent">Envoyé</option>
+                  <option value="ordered">Commandé</option>
+                  <option value="cancelled">Annulé</option>
+                </select>
+              </div>
             </div>
           )}
 
@@ -539,7 +560,17 @@ export function QuoteForm({
                   type="checkbox"
                   checked={formData.apply_stamp}
                   onChange={(e) =>
-                    setFormData({ ...formData, apply_stamp: e.target.checked })
+                    setFormData({
+                      ...formData,
+                      apply_stamp: e.target.checked,
+                      // Cocher avec un montant vide/0 restaure la valeur par
+                      // défaut ; décocher remet le montant à 0
+                      stamp_duty: e.target.checked
+                        ? !formData.stamp_duty || formData.stamp_duty <= 0
+                          ? 1000
+                          : formData.stamp_duty
+                        : 0,
+                    })
                   }
                   className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
                   title="Activer/désactiver le frais de timbre"
@@ -551,16 +582,18 @@ export function QuoteForm({
                   <input
                     type="number"
                     min="0"
-                    step="100"
+                    step="any"
                     value={formData.stamp_duty || ""}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
                       setFormData({
                         ...formData,
-                        stamp_duty: Number(e.target.value),
-                      })
-                    }
-                    disabled={!formData.apply_stamp}
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
+                        stamp_duty: v,
+                        // Montant à 0 ou vide -> la case se décoche automatiquement
+                        apply_stamp: v > 0,
+                      });
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
                     placeholder="0"
                   />
                   <span className="absolute right-3 top-2 text-gray-500 text-sm">
