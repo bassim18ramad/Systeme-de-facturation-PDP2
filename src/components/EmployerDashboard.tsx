@@ -10,7 +10,10 @@ import {
   Users,
   PenTool,
   Plus,
+  Download,
+  Loader2,
 } from "lucide-react";
+import { downloadDocumentsZip, BulkType } from "../utils/bulkDownload";
 import { CompanySettings } from "./CompanySettings";
 import { QuotesList, QuoteWithItems } from "./QuotesList";
 import { DeliveryOrdersList, OrderWithDetails } from "./DeliveryOrdersList";
@@ -40,6 +43,12 @@ export function EmployerDashboard() {
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [showQuoteForm, setShowQuoteForm] = useState(false);
   const [quotesRefreshToken, setQuotesRefreshToken] = useState(0);
+  // Export ZIP groupé (réservé à l'employeur)
+  const [zipJob, setZipJob] = useState<{
+    type: BulkType;
+    done: number;
+    total: number;
+  } | null>(null);
   const [stats, setStats] = useState({
     totalQuotes: 0,
     draftQuotes: 0,
@@ -116,6 +125,68 @@ export function EmployerDashboard() {
       paidInvoices: countBy(invoices, "paid"),
     });
   }
+
+  async function handleZipDownload(
+    e: React.MouseEvent,
+    type: BulkType,
+    label: string,
+  ) {
+    e.stopPropagation();
+    if (!selectedCompany || zipJob) return;
+
+    setZipJob({ type, done: 0, total: 0 });
+    try {
+      const count = await downloadDocumentsZip(
+        selectedCompany.id,
+        type,
+        profile?.full_name || "",
+        (done, total) => setZipJob({ type, done, total }),
+      );
+      alert(
+        `Archive ZIP générée : ${count} document${count > 1 ? "s" : ""} inclus (${label}s).`,
+      );
+    } catch (err) {
+      alert(
+        err instanceof Error
+          ? err.message
+          : "Erreur lors de la génération de l'archive",
+      );
+    } finally {
+      setZipJob(null);
+    }
+  }
+
+  const ZipButton = ({
+    type,
+    title,
+    tooltip,
+  }: {
+    type: BulkType;
+    title: string;
+    tooltip: string;
+  }) => {
+    const running = zipJob?.type === type;
+    return (
+      <button
+        onClick={(e) => handleZipDownload(e, type, title)}
+        disabled={!!zipJob}
+        title={tooltip}
+        className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 hover:text-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {running ? (
+          <>
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            {zipJob.total > 0 ? `${zipJob.done}/${zipJob.total}` : "..."}
+          </>
+        ) : (
+          <>
+            <Download className="w-3.5 h-3.5" />
+            ZIP
+          </>
+        )}
+      </button>
+    );
+  };
 
   const handleCompanyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
@@ -217,6 +288,11 @@ export function EmployerDashboard() {
                 <span className="text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full text-xs">
                   {stats.orderedQuotes} commandés
                 </span>
+                <ZipButton
+                  type="quotes"
+                  title="devi"
+                  tooltip="Télécharger tous les devis en ZIP"
+                />
               </div>
             </div>
 
@@ -246,6 +322,11 @@ export function EmployerDashboard() {
                 <span className="text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full text-xs">
                   {stats.deliveredOrders} livrées
                 </span>
+                <ZipButton
+                  type="orders"
+                  title="commande"
+                  tooltip="Télécharger tous les bons de commande en ZIP"
+                />
               </div>
             </div>
 
@@ -273,6 +354,11 @@ export function EmployerDashboard() {
                 <span className="text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full text-xs">
                   {stats.paidInvoices} payées
                 </span>
+                <ZipButton
+                  type="invoices"
+                  title="facture"
+                  tooltip="Télécharger toutes les factures en ZIP"
+                />
               </div>
             </div>
 

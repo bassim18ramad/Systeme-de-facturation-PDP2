@@ -4,7 +4,7 @@ import html2pdf from "html2pdf.js";
 
 type DocumentType = "quote" | "delivery_order" | "invoice";
 
-type DocumentData = {
+export type DocumentData = {
   type: DocumentType;
   number: string;
   date: string;
@@ -37,6 +37,44 @@ const documentTitles = {
   delivery_order: "BON DE LIVRAISON",
   invoice: "FACTURE",
 };
+
+// Génère le PDF en mémoire (sans déclencher de téléchargement) : utilisé par
+// l'export ZIP groupé. Rendu identique au téléchargement unitaire.
+export async function generateDocumentPdfBlob(
+  data: DocumentData,
+): Promise<Blob> {
+  const html = generateHTML(data);
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+  const styles = Array.from(doc.querySelectorAll("style"))
+    .map((s) => s.outerHTML)
+    .join("\n");
+  const bodyContent = doc.body.innerHTML;
+
+  const content = document.createElement("div");
+  content.innerHTML = `${styles}<div class="pdf-content">${bodyContent}</div>`;
+
+  const opt = {
+    margin: 10,
+    filename: `${data.type}_${data.number}.pdf`,
+    image: { type: "jpeg" as const, quality: 0.95 },
+    // Échelle réduite par rapport au téléchargement unitaire : sur un export de
+    // plusieurs dizaines de documents, scale 2 multiplie le temps de rendu.
+    html2canvas: { scale: 1.5, useCORS: true },
+    jsPDF: {
+      unit: "mm" as const,
+      format: "a4" as const,
+      orientation: "portrait" as const,
+    },
+  };
+
+  await Promise.race([
+    waitForImages(content),
+    new Promise<void>((resolve) => setTimeout(resolve, 4000)),
+  ]);
+
+  return html2pdf().from(content).set(opt).outputPdf("blob");
+}
 
 export function downloadDocument(
   data: DocumentData,

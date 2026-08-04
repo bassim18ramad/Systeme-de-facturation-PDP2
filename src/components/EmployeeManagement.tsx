@@ -134,10 +134,13 @@ export function EmployeeManagement({ companyId }: EmployeeManagementProps) {
             throw new Error("Vous devez être connecté pour créer un employé.");
           }
 
+          // Même résolution que src/lib/supabase-custom.ts : en production on
+          // reste sur des URLs relatives. Sans ce garde-fou, le site déployé
+          // appelait http://localhost:3000 et la création d'employé échouait.
           const API_URL = (
             import.meta.env.VITE_API_URL ||
             import.meta.env.VITE_SUPABASE_URL ||
-            "http://localhost:3000"
+            (import.meta.env.PROD ? "" : "http://localhost:3000")
           ).replace(/\/$/, "");
 
           const res = await fetch(`${API_URL}/auth/v1/admin/create-user`, {
