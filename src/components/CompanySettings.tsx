@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { supabase, Company } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
-import { Building2, Save, Plus, Trash2 } from "lucide-react";
+import { Building2, Save, Plus, Trash2, AlertTriangle } from "lucide-react";
 
 type CompanySettingsProps = {
   company: Company | null;
@@ -15,6 +16,16 @@ export function CompanySettings({ company, onUpdate }: CompanySettingsProps) {
   const [uploadingSignature, setUploadingSignature] = useState(false);
   const [error, setError] = useState("");
   const [isCreating, setIsCreating] = useState(!company);
+  // Verrou de suppression de l'entreprise
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [countingDocs, setCountingDocs] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [deleteCounts, setDeleteCounts] = useState<{
+    quotes: number;
+    orders: number;
+    invoices: number;
+  } | null>(null);
 
   const [formData, setFormData] = useState({
     name: company?.name || "",
@@ -103,24 +114,49 @@ export function CompanySettings({ company, onUpdate }: CompanySettingsProps) {
     }
   }
 
-  async function handleDelete() {
+  // Ouvre la fenêtre de suppression après avoir compté ce qui serait détruit.
+  // Supprimer une entreprise efface en cascade ses devis, bons de commande et
+  // factures : le comptage est donc affiché avant toute confirmation.
+  async function openDeleteDialog() {
     if (!company) return;
-    if (
-      !confirm(
-        "Êtes-vous sûr de vouloir supprimer cette entreprise ? Cette action est irréversible et supprimera toutes les données associées.",
-      )
-    )
-      return;
+    setDeleteConfirmName("");
+    setDeleteCounts(null);
+    setShowDeleteDialog(true);
+    setCountingDocs(true);
 
+    const [quotesRes, ordersRes, invoicesRes] = await Promise.all([
+      supabase.from("quotes").select("*").eq("company_id", company.id),
+      supabase.from("delivery_orders").select("*").eq("company_id", company.id),
+      supabase.from("invoices").select("*").eq("company_id", company.id),
+    ]);
+
+    setDeleteCounts({
+      quotes: (quotesRes.data || []).length,
+      orders: (ordersRes.data || []).length,
+      invoices: (invoicesRes.data || []).length,
+    });
+    setCountingDocs(false);
+  }
+
+  async function handleDelete() {
+    if (!company || !deleteCounts) return;
+    // Double garde : facturation existante, puis nom saisi à l'identique
+    if (deleteCounts.invoices > 0) return;
+    if (deleteConfirmName.trim() !== company.name) return;
+
+    setDeleting(true);
     try {
       const { error } = await supabase
         .from("companies")
         .delete()
         .eq("id", company.id);
       if (error) throw error;
+      setShowDeleteDialog(false);
       onUpdate();
     } catch (e: any) {
       alert("Erreur lors de la suppression: " + e.message);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -407,7 +443,7 @@ export function CompanySettings({ company, onUpdate }: CompanySettingsProps) {
           {company && (
             <button
               type="button"
-              onClick={handleDelete}
+              onClick={openDeleteDialog}
               className="mr-auto inline-flex items-center space-x-2 px-6 py-3 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 hover:shadow-sm transition-all duration-200"
             >
               <Trash2 className="w-5 h-5" />
@@ -435,6 +471,122 @@ export function CompanySettings({ company, onUpdate }: CompanySettingsProps) {
           </button>
         </div>
       </form>
+
+      {showDeleteDialog &&
+        company &&
+        createPortal(
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-[110] p-4 pt-[6vh] overflow-y-auto">
+            <div className="bg-white rounded-xl p-6 max-w-lg w-full animate-slide-up">
+              <div className="flex items-start gap-3 mb-4">
+                <div className="bg-red-50 p-2 rounded-lg">
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">
+                    Supprimer « {company.name} »
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    Cette action est irréversible.
+                  </p>
+                </div>
+              </div>
+
+              {countingDocs && (
+                <p className="text-sm text-gray-600 py-6 text-center">
+                  Vérification des documents liés...
+                </p>
+              )}
+
+              {!countingDocs && deleteCounts && (
+                <>
+                  {deleteCounts.invoices > 0 ? (
+                    <>
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                        <p className="text-sm text-red-800 font-semibold mb-2">
+                          Suppression bloquée
+                        </p>
+                        <p className="text-sm text-red-700">
+                          Cette entreprise contient encore{" "}
+                          <strong>{deleteCounts.invoices} facture(s)</strong>.
+                          Supprimer l'entreprise détruirait définitivement toute
+                          votre facturation.
+                        </p>
+                        <p className="text-sm text-red-700 mt-2">
+                          Si vous voulez réellement tout effacer, supprimez
+                          d'abord les factures depuis l'onglet Factures.
+                        </p>
+                      </div>
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4 text-sm text-gray-700">
+                        Documents liés : {deleteCounts.quotes} devis ·{" "}
+                        {deleteCounts.orders} bon(s) de commande ·{" "}
+                        {deleteCounts.invoices} facture(s)
+                      </div>
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setShowDeleteDialog(false)}
+                          className="px-5 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                        >
+                          Fermer
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4 text-sm text-amber-800">
+                        Seront également supprimés :{" "}
+                        <strong>{deleteCounts.quotes} devis</strong> et{" "}
+                        <strong>
+                          {deleteCounts.orders} bon(s) de commande
+                        </strong>
+                        .
+                      </div>
+
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Pour confirmer, saisissez le nom exact de l'entreprise :{" "}
+                        <span className="font-mono text-gray-900">
+                          {company.name}
+                        </span>
+                      </label>
+                      <input
+                        type="text"
+                        value={deleteConfirmName}
+                        onChange={(e) => setDeleteConfirmName(e.target.value)}
+                        placeholder={company.name}
+                        autoComplete="off"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 mb-4"
+                      />
+
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowDeleteDialog(false)}
+                          className="px-5 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+                        >
+                          Annuler
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleDelete}
+                          disabled={
+                            deleting ||
+                            deleteConfirmName.trim() !== company.name
+                          }
+                          className="px-5 py-2 text-sm text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          {deleting
+                            ? "Suppression..."
+                            : "Supprimer définitivement"}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
