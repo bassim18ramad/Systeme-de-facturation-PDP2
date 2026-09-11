@@ -1,6 +1,35 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../db");
+const jwt = require("jsonwebtoken");
+
+const JWT_SECRET = process.env.JWT_SECRET || "super-secret-jwt-key";
+
+if (!process.env.JWT_SECRET) {
+  console.warn(
+    "[SECURITE] JWT_SECRET n'est pas defini : les jetons sont signes avec une valeur par defaut publique. Definissez JWT_SECRET dans les variables d'environnement.",
+  );
+}
+
+// Toutes les routes /api exigent un jeton valide. Sans ce garde-fou, n'importe
+// qui connaissant l'URL pouvait lire, modifier et supprimer les donnees.
+router.use((req, res, next) => {
+  const header = req.headers.authorization;
+  const token = header && header.startsWith("Bearer ") ? header.slice(7) : null;
+
+  if (!token) {
+    return res.status(401).json({ error: "Authentification requise" });
+  }
+
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch (e) {
+    return res
+      .status(401)
+      .json({ error: "Session expiree ou jeton invalide" });
+  }
+});
 
 // Colonnes récentes non couvertes par les migrations déjà appliquées en
 // production : on les ajoute à la volée (une seule fois par démarrage),

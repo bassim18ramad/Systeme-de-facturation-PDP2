@@ -239,6 +239,20 @@ class QueryBuilder {
         body: this.body ? JSON.stringify(this.body) : undefined,
       });
 
+      // Session invalide ou expirée : on repart proprement sur l'écran de
+      // connexion plutôt que d'afficher des écrans vides sans explication.
+      if (res.status === 401) {
+        localStorage.removeItem("sb-session");
+        if (!window.__sessionExpiredHandled) {
+          window.__sessionExpiredHandled = true;
+          window.location.reload();
+        }
+        return {
+          data: null,
+          error: { message: "Session expirée, veuillez vous reconnecter" },
+        };
+      }
+
       if (!res.ok) {
         const text = await res.text();
         let err;
