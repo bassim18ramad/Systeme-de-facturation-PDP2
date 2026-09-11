@@ -121,6 +121,8 @@ export async function downloadDocumentsZip(
     include_tva: quote.include_tva,
     stamp_duty: quote.stamp_duty,
     showSignature: quote.include_signature !== false,
+    terms: company.payment_terms || "",
+    showTerms: quote.include_terms !== false,
     notes: quote.notes || "",
     downloadedBy,
   });

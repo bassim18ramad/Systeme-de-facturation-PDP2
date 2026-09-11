@@ -79,6 +79,8 @@ export function DeliveryOrderViewer({
           })),
           total: order.quote.total_amount,
           showSignature: order.quote.include_signature !== false,
+          terms: company?.payment_terms || "",
+          showTerms: order.quote.include_terms !== false,
           notes: order.quote.notes || "",
           downloadedBy: profile?.full_name || "",
         },
@@ -250,17 +252,31 @@ export function DeliveryOrderViewer({
             </div>
           )}
 
-          {company?.signature_url &&
-            order.quote?.include_signature !== false && (
-            <div className="mt-8">
-              <p className="text-sm text-gray-600 mb-2">Signature</p>
-              <img
-                src={company.signature_url}
-                alt="Signature"
-                className="h-16 object-contain"
-              />
-            </div>
-          )}
+          <div className="mt-8 flex items-start justify-between gap-6">
+            {company?.signature_url &&
+            order.quote?.include_signature !== false ? (
+              <div>
+                <p className="text-sm text-gray-600 mb-2">Signature</p>
+                <img
+                  src={company.signature_url}
+                  alt="Signature"
+                  className="h-16 object-contain"
+                />
+              </div>
+            ) : (
+              <div />
+            )}
+            {company?.payment_terms && order.quote?.include_terms !== false && (
+              <div className="max-w-[55%] bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                  Règlement
+                </h3>
+                <p className="text-sm text-gray-600 whitespace-pre-line">
+                  {company.payment_terms}
+                </p>
+              </div>
+            )}
+          </div>
           {company?.wallets && company.wallets.length > 0 && (
             <div className="mt-8 pt-6 border-t border-gray-100">
               <h4 className="text-sm font-semibold text-gray-900 mb-3 text-center">

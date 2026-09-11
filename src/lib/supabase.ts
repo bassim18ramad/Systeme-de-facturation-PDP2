@@ -31,6 +31,8 @@ export type Company = {
   email: string | null;
   phone: string | null;
   wallets: { type: string; address: string }[] | null;
+  // Règlement (conditions) rédigé par l'employeur, affiché à droite de la signature
+  payment_terms: string | null;
 };
 
 export type Quote = {
@@ -46,6 +48,8 @@ export type Quote = {
   include_tva?: boolean;
   stamp_duty?: number;
   include_signature?: boolean;
+  // Affiche ou non le règlement de l'entreprise sur les 3 documents
+  include_terms?: boolean;
   notes: string | null;
   created_by: string;
   created_at: string;

@@ -384,6 +384,8 @@ export function InvoicesList({
           })),
           total: quoteData.total_amount,
           showSignature: quoteData.include_signature !== false,
+          terms: (company as Company)?.payment_terms || "",
+          showTerms: quoteData.include_terms !== false,
           notes: quoteData.notes || "",
           downloadedBy: profile?.full_name || "",
         },

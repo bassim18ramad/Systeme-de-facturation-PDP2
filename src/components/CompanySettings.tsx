@@ -23,6 +23,7 @@ export function CompanySettings({ company, onUpdate }: CompanySettingsProps) {
     email: company?.email || "",
     phone: company?.phone || "",
     wallets: company?.wallets || [],
+    payment_terms: company?.payment_terms || "",
   });
 
   useEffect(() => {
@@ -34,6 +35,7 @@ export function CompanySettings({ company, onUpdate }: CompanySettingsProps) {
       email: company?.email || "",
       phone: company?.phone || "",
       wallets: company?.wallets || [],
+      payment_terms: company?.payment_terms || "",
     });
   }, [company]);
 
@@ -144,6 +146,7 @@ export function CompanySettings({ company, onUpdate }: CompanySettingsProps) {
           email: formData.email || null,
           phone: formData.phone || null,
           wallets: formData.wallets || [],
+          payment_terms: formData.payment_terms || null,
         };
 
         // Remove undefined fields just in case
@@ -166,6 +169,7 @@ export function CompanySettings({ company, onUpdate }: CompanySettingsProps) {
           email: formData.email || null,
           phone: formData.phone || null,
           wallets: formData.wallets || [],
+          payment_terms: formData.payment_terms || null,
           employer_id: profile?.id,
         });
 
@@ -375,6 +379,28 @@ export function CompanySettings({ company, onUpdate }: CompanySettingsProps) {
               />
             </div>
           )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Règlement
+          </label>
+          <textarea
+            value={formData.payment_terms}
+            onChange={(e) =>
+              setFormData({ ...formData, payment_terms: e.target.value })
+            }
+            rows={5}
+            placeholder={
+              "Ex. :\n- Règlement à 30 jours à compter de la date de facture\n- Paiement par virement ou espèces\n- Pénalités de retard : 2% par mois"
+            }
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Vos conditions de règlement. Elles s'affichent à droite de la
+            signature sur les devis, bons de commande et factures, lorsque la
+            case « Inclure le règlement » est cochée sur le devis.
+          </p>
         </div>
 
         <div className="flex justify-end pt-4 border-t border-gray-200 gap-4">

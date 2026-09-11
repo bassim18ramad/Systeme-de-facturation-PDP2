@@ -82,9 +82,13 @@ export function EmployerDashboard() {
 
     if (!error && data) {
       setCompanies(data);
-      if (data.length > 0 && !selectedCompany) {
-        setSelectedCompany(data[0]);
-      }
+      // Rafraîchir aussi l'entreprise sélectionnée : sans cela, le formulaire
+      // Paramètres restait sur des données périmées et une sauvegarde suivante
+      // réécrivait les anciennes valeurs (logo, règlement, coordonnées...).
+      setSelectedCompany((current) => {
+        if (!current) return data.length > 0 ? data[0] : null;
+        return data.find((c: Company) => c.id === current.id) || data[0] || null;
+      });
     }
   }
 

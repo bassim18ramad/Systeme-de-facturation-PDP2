@@ -82,6 +82,8 @@ export function InvoiceViewer({ invoice, onClose }: InvoiceViewerProps) {
           total: invoice.delivery_order.quote.total_amount,
           showSignature:
             invoice.delivery_order.quote.include_signature !== false,
+          terms: company?.payment_terms || "",
+          showTerms: invoice.delivery_order.quote.include_terms !== false,
           notes: invoice.delivery_order.quote.notes || "",
           downloadedBy: profile?.full_name || "",
         },
@@ -105,6 +107,13 @@ export function InvoiceViewer({ invoice, onClose }: InvoiceViewerProps) {
   }
 
   const quote = invoice.delivery_order?.quote;
+  const hasDimensions = quote?.items?.some((i) => i.width && i.length);
+  const labelSpan = hasDimensions ? 4 : 3;
+  const subtotal =
+    quote?.items?.reduce(
+      (sum, item) => sum + (Number(item.total_price) || 0),
+      0,
+    ) || 0;
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[100] animate-fade-in">
@@ -253,15 +262,66 @@ export function InvoiceViewer({ invoice, onClose }: InvoiceViewerProps) {
             <tfoot className="bg-gray-50">
               <tr>
                 <td
-                  colSpan={
-                    quote?.items?.some((i) => i.width && i.length) ? 4 : 3
-                  }
-                  className="px-4 py-3 text-right text-base font-semibold text-gray-900"
+                  colSpan={labelSpan}
+                  className="px-4 py-3 text-right text-sm font-semibold text-gray-700"
+                >
+                  Sous-total
+                </td>
+                <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
+                  {subtotal.toLocaleString(undefined, {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 2,
+                  })}{" "}
+                  FDJ
+                </td>
+              </tr>
+              {quote?.include_tva && (
+                <tr>
+                  <td
+                    colSpan={labelSpan}
+                    className="px-4 py-3 text-right text-sm font-semibold text-gray-700"
+                  >
+                    TVA (10%)
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
+                    {(subtotal * 0.1).toLocaleString(undefined, {
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 2,
+                    })}{" "}
+                    FDJ
+                  </td>
+                </tr>
+              )}
+              {(Number(quote?.stamp_duty) || 0) > 0 && (
+                <tr>
+                  <td
+                    colSpan={labelSpan}
+                    className="px-4 py-3 text-right text-sm font-semibold text-gray-700"
+                  >
+                    Frais de timbre
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
+                    {Number(quote?.stamp_duty).toLocaleString(undefined, {
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 2,
+                    })}{" "}
+                    FDJ
+                  </td>
+                </tr>
+              )}
+              <tr className="border-t border-gray-200">
+                <td
+                  colSpan={labelSpan}
+                  className="px-4 py-3 text-right text-base font-bold text-gray-900"
                 >
                   Total
                 </td>
-                <td className="px-4 py-3 text-right text-base font-bold text-gray-900">
-                  {Number(quote?.total_amount).toFixed(2)} FDJ
+                <td className="px-4 py-3 text-right text-base font-bold text-blue-600">
+                  {Number(quote?.total_amount).toLocaleString(undefined, {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 2,
+                  })}{" "}
+                  FDJ
                 </td>
               </tr>
             </tfoot>
@@ -276,17 +336,31 @@ export function InvoiceViewer({ invoice, onClose }: InvoiceViewerProps) {
             </div>
           )}
 
-          {company?.signature_url &&
-            invoice.delivery_order?.quote?.include_signature !== false && (
-            <div className="mt-8">
-              <p className="text-sm text-gray-600 mb-2">Signature</p>
-              <img
-                src={company.signature_url}
-                alt="Signature"
-                className="h-16 object-contain"
-              />
-            </div>
-          )}
+          <div className="mt-8 flex items-start justify-between gap-6">
+            {company?.signature_url &&
+            invoice.delivery_order?.quote?.include_signature !== false ? (
+              <div>
+                <p className="text-sm text-gray-600 mb-2">Signature</p>
+                <img
+                  src={company.signature_url}
+                  alt="Signature"
+                  className="h-16 object-contain"
+                />
+              </div>
+            ) : (
+              <div />
+            )}
+            {company?.payment_terms && quote?.include_terms !== false && (
+              <div className="max-w-[55%] bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                  Règlement
+                </h3>
+                <p className="text-sm text-gray-600 whitespace-pre-line">
+                  {company.payment_terms}
+                </p>
+              </div>
+            )}
+          </div>
           {company?.wallets && company.wallets.length > 0 && (
             <div className="mt-8 pt-6 border-t border-gray-100">
               <h4 className="text-sm font-semibold text-gray-900 mb-3 text-center">

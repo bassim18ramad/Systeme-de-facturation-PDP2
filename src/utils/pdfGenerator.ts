@@ -28,6 +28,8 @@ export type DocumentData = {
   stamp_duty?: number;
   deliveryDate?: string;
   showSignature?: boolean;
+  terms?: string;
+  showTerms?: boolean;
   notes: string;
   downloadedBy: string;
 };
@@ -456,9 +458,40 @@ function generateHTML(data: DocumentData): string {
       white-space: pre-line;
     }
 
-    .signature {
+    .closing {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 18px;
       margin-top: 12px;
+    }
+
+    .signature {
       display: inline-block;
+    }
+
+    .terms {
+      flex: 1;
+      max-width: 55%;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+
+    .terms h3 {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 6px;
+      letter-spacing: 0.6px;
+    }
+
+    .terms p {
+      font-size: 12px;
+      color: #334155;
+      white-space: pre-line;
     }
 
     .signature p {
@@ -661,11 +694,26 @@ function generateHTML(data: DocumentData): string {
     }
 
     ${
-      signatureUrl && data.showSignature !== false
+      (signatureUrl && data.showSignature !== false) ||
+      (data.terms && data.showTerms !== false)
         ? `
-      <div class="signature">
-        <p>Signature</p>
-        <img src="${signatureUrl}" alt="Signature" crossorigin="anonymous" referrerpolicy="no-referrer">
+      <div class="closing">
+        ${
+          signatureUrl && data.showSignature !== false
+            ? `<div class="signature">
+          <p>Signature</p>
+          <img src="${signatureUrl}" alt="Signature" crossorigin="anonymous" referrerpolicy="no-referrer">
+        </div>`
+            : "<div></div>"
+        }
+        ${
+          data.terms && data.showTerms !== false
+            ? `<div class="terms">
+          <h3>Règlement</h3>
+          <p>${data.terms}</p>
+        </div>`
+            : ""
+        }
       </div>
     `
         : ""

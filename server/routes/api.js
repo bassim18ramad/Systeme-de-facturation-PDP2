@@ -5,13 +5,31 @@ const db = require("../db");
 // Colonnes récentes non couvertes par les migrations déjà appliquées en
 // production : on les ajoute à la volée (une seule fois par démarrage),
 // comme ensureStorageSchema dans routes/storage.js.
+const REQUIRED_COLUMNS = [
+  { table: "quotes", column: "include_signature", type: "boolean DEFAULT true" },
+  { table: "quotes", column: "include_terms", type: "boolean DEFAULT true" },
+  { table: "companies", column: "payment_terms", type: "text" },
+];
+
 let businessSchemaReady = false;
 router.use(async (req, res, next) => {
   if (!businessSchemaReady) {
     try {
-      await db.query(
-        `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS include_signature boolean DEFAULT true`,
-      );
+      for (const { table, column, type } of REQUIRED_COLUMNS) {
+        // On vérifie d'abord via information_schema : cette lecture ne pose
+        // aucun verrou, alors qu'un ALTER TABLE (même "IF NOT EXISTS") prend
+        // un verrou exclusif à chaque démarrage à froid.
+        const { rows } = await db.query(
+          `SELECT 1 FROM information_schema.columns
+           WHERE table_name = $1 AND column_name = $2 LIMIT 1`,
+          [table, column],
+        );
+        if (rows.length === 0) {
+          await db.query(
+            `ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${column} ${type}`,
+          );
+        }
+      }
       businessSchemaReady = true;
     } catch (e) {
       console.error("ensure business schema failed:", e.message);

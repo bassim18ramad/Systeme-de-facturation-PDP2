@@ -43,6 +43,7 @@ export function QuoteForm({
     stamp_duty: initialData ? (initialData.stamp_duty ?? 0) : 1000,
     apply_stamp: initialData ? (initialData.stamp_duty ?? 0) > 0 : true,
     include_signature: initialData ? initialData.include_signature !== false : true,
+    include_terms: initialData ? initialData.include_terms !== false : true,
     status: initialData?.status || "draft",
   });
 
@@ -146,6 +147,7 @@ export function QuoteForm({
               ? Number(formData.stamp_duty) || 0
               : 0,
             include_signature: formData.include_signature,
+            include_terms: formData.include_terms,
             status: formData.status,
             total_amount: totalAmount,
           })
@@ -222,6 +224,7 @@ export function QuoteForm({
               ? Number(formData.stamp_duty) || 0
               : 0,
             include_signature: formData.include_signature,
+            include_terms: formData.include_terms,
             total_amount: totalAmount,
             status: "draft",
             created_by: profile?.id,
@@ -616,6 +619,23 @@ export function QuoteForm({
                 />
                 <span className="text-sm font-medium text-gray-700">
                   Inclure la signature dans le devis
+                </span>
+              </label>
+
+              <label className="flex items-center space-x-2 p-2 bg-white rounded border border-gray-200 cursor-pointer hover:bg-gray-50">
+                <input
+                  type="checkbox"
+                  checked={formData.include_terms}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      include_terms: e.target.checked,
+                    })
+                  }
+                  className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
+                />
+                <span className="text-sm font-medium text-gray-700">
+                  Inclure le règlement dans les documents
                 </span>
               </label>
             </div>
